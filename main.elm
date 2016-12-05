@@ -3,6 +3,8 @@ module Main exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Http
+import Json.Decode as Decode
 
 
 main =
@@ -15,22 +17,34 @@ main =
 
 
 type alias Model =
-    { servers : List String
-    , serverSearchBox : String
+    { serverSearchBox : String
+    , servers : ServerList
     }
+
+
+type ServerList
+    = Success (List String)
+    | Loading
+    | Error String
 
 
 type Msg
     = SearchForServer String
+    | FetchServers (Result Http.Error (List String))
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { servers = [ "apid1", "apid2", "apid3" ]
+    ( { servers = Loading
       , serverSearchBox = ""
       }
-    , Cmd.none
+    , Http.send FetchServers (Http.get "http://sensu-mdw1.sendgrid.net:4567/clients" decodeListOfStrings)
     )
+
+
+decodeListOfStrings : Decode.Decoder (List String)
+decodeListOfStrings =
+    Decode.list (Decode.at [ "name" ] Decode.string)
 
 
 view : Model -> Html Msg
@@ -40,15 +54,32 @@ view model =
         [ input
             [ onInput SearchForServer ]
             []
-        , ul
-            [ class "servers" ]
-            (List.map viewServer (List.filter (isServerMatch model.serverSearchBox) model.servers))
+        , viewServers model.serverSearchBox model.servers
         ]
 
 
 isServerMatch : String -> String -> Bool
 isServerMatch search server =
     String.contains search server
+
+
+viewServers : String -> ServerList -> Html Msg
+viewServers searchTerm serverList =
+    case serverList of
+        Loading ->
+            div
+                []
+                [ text "Loading..." ]
+
+        Success servers ->
+            ul
+                [ class "servers" ]
+                (List.map viewServer (List.filter (isServerMatch searchTerm) servers))
+
+        Error errorMsg ->
+            div
+                [ style [ ( "color", "red" ) ] ]
+                [ text errorMsg ]
 
 
 viewServer : String -> Html Msg
@@ -65,6 +96,14 @@ update msg model =
             case msg of
                 SearchForServer serverName ->
                     { model | serverSearchBox = serverName }
+
+                FetchServers serverList ->
+                    case serverList of
+                        Err _ ->
+                            { model | servers = Error "something went wrong" }
+
+                        Ok serverList ->
+                            { model | servers = Success serverList }
     in
         ( newModel, Cmd.none )
 
