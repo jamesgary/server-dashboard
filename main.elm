@@ -17,9 +17,15 @@ main =
 
 
 type alias Model =
-    { servers : List String
-    , serverSearchBox : String
+    { serverSearchBox : String
+    , servers : ServerList
     }
+
+
+type ServerList
+    = Success (List String)
+    | Loading
+    | Error String
 
 
 type Msg
@@ -29,7 +35,7 @@ type Msg
 
 init : ( Model, Cmd Msg )
 init =
-    ( { servers = [ "apid1", "apid2", "apid3" ]
+    ( { servers = Loading
       , serverSearchBox = ""
       }
     , Http.send FetchServers (Http.get "http://sensu-mdw1.sendgrid.net:4567/clients" decodeListOfStrings)
@@ -48,15 +54,32 @@ view model =
         [ input
             [ onInput SearchForServer ]
             []
-        , ul
-            [ class "servers" ]
-            (List.map viewServer (List.filter (isServerMatch model.serverSearchBox) model.servers))
+        , viewServers model.serverSearchBox model.servers
         ]
 
 
 isServerMatch : String -> String -> Bool
 isServerMatch search server =
     String.contains search server
+
+
+viewServers : String -> ServerList -> Html Msg
+viewServers searchTerm serverList =
+    case serverList of
+        Loading ->
+            div
+                []
+                [ text "Loading..." ]
+
+        Success servers ->
+            ul
+                [ class "servers" ]
+                (List.map viewServer (List.filter (isServerMatch searchTerm) servers))
+
+        Error errorMsg ->
+            div
+                [ style [ ( "color", "red" ) ] ]
+                [ text errorMsg ]
 
 
 viewServer : String -> Html Msg
@@ -77,10 +100,10 @@ update msg model =
                 FetchServers serverList ->
                     case serverList of
                         Err _ ->
-                            { model | servers = [ "something went wrong" ] }
+                            { model | servers = Error "something went wrong" }
 
                         Ok serverList ->
-                            { model | servers = serverList }
+                            { model | servers = Success serverList }
     in
         ( newModel, Cmd.none )
 
