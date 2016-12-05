@@ -3,6 +3,8 @@ module Main exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Http
+import Json.Decode as Decode
 
 
 main =
@@ -22,6 +24,7 @@ type alias Model =
 
 type Msg
     = SearchForServer String
+    | FetchServers (Result Http.Error (List String))
 
 
 init : ( Model, Cmd Msg )
@@ -29,8 +32,13 @@ init =
     ( { servers = [ "apid1", "apid2", "apid3" ]
       , serverSearchBox = ""
       }
-    , Cmd.none
+    , Http.send FetchServers (Http.get "http://sensu-mdw1.sendgrid.net:4567/clients" decodeListOfStrings)
     )
+
+
+decodeListOfStrings : Decode.Decoder (List String)
+decodeListOfStrings =
+    Decode.list (Decode.at [ "name" ] Decode.string)
 
 
 view : Model -> Html Msg
@@ -65,6 +73,14 @@ update msg model =
             case msg of
                 SearchForServer serverName ->
                     { model | serverSearchBox = serverName }
+
+                FetchServers serverList ->
+                    case serverList of
+                        Err _ ->
+                            { model | servers = [ "something went wrong" ] }
+
+                        Ok serverList ->
+                            { model | servers = serverList }
     in
         ( newModel, Cmd.none )
 
