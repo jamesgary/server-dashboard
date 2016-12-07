@@ -20,18 +20,38 @@ main =
 type alias Model =
     { serverSearchBox : String
     , servers : ServerList
+    , stashes : StashList
     }
 
 
-type ServerList
+type StashList
     = Success (List String)
     | Loading
     | Error String
 
 
+type ServerList
+    = Success (List Server)
+    | Loading
+    | Error String
+
+
+type alias Server =
+    { name : String
+    , isStashed : Bool
+    }
+
+
+initServer name =
+    { name = name
+    , isStashed = False
+    }
+
+
 type Msg
     = SearchForServer String
     | FetchServers (Result Http.Error (List String))
+    | FetchStashes (Result Http.Error (List String))
 
 
 init : ( Model, Cmd Msg )
@@ -39,13 +59,26 @@ init =
     ( { servers = Loading
       , serverSearchBox = ""
       }
-    , Http.send FetchServers (Http.get "http://sensu-mdw1.sendgrid.net:4567/clients" decodeListOfStrings)
+    , Cmd.batch
+        [ Http.send FetchServers (Http.get "http://sensu-mdw1.sendgrid.net:4567/clients" decodeListOfServers)
+        , Http.send FetchStashes (Http.get "http://sensu-mdw1.sendgrid.net:4567/stashes" decodeListOfStashes)
+        ]
     )
 
 
-decodeListOfStrings : Decode.Decoder (List String)
-decodeListOfStrings =
+decodeListOfServers : Decode.Decoder (List String)
+decodeListOfServers =
     Decode.list (Decode.at [ "name" ] Decode.string)
+
+
+decodeListOfStashes : Decode.Decoder (List String)
+decodeListOfStashes =
+    {--|> (fancy logic here) --}
+    Decode.list (Decode.at [ "path" ] Decode.string)
+
+
+
+-- VIEW
 
 
 view : Model -> Html Msg
@@ -59,13 +92,13 @@ view model =
         ]
 
 
-isServerMatch : String -> String -> Bool
+isServerMatch : String -> Server -> Bool
 isServerMatch search server =
     let
         regex =
             Regex.regex search
     in
-        Regex.contains regex server
+        Regex.contains regex server.name
 
 
 viewServers : String -> ServerList -> Html Msg
@@ -87,11 +120,15 @@ viewServers searchTerm serverList =
                 [ text errorMsg ]
 
 
-viewServer : String -> Html Msg
-viewServer serverName =
+viewServer : Server -> Html Msg
+viewServer server =
     li
         [ class "server" ]
-        [ text serverName ]
+        [ text server.name ]
+
+
+
+-- UPDATE
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -105,12 +142,24 @@ update msg model =
                 FetchServers serverList ->
                     case serverList of
                         Err _ ->
-                            { model | servers = Error "something went wrong" }
+                            { model | servers = Error "something went wrong fetching servers" }
 
                         Ok serverList ->
-                            { model | servers = Success serverList }
+                            { model | servers = Success (List.map initServer serverList) }
+
+                FetchStashes stashList ->
+                    case stashList of
+                        Err _ ->
+                            { model | servers = Error "something went wrong fetching stashes" }
+
+                        Ok serverList ->
+                            { model | stashes = Success serverList }
     in
         ( newModel, Cmd.none )
+
+
+
+-- SUBSCRIPTIONS
 
 
 subscriptions : Model -> Sub Msg
