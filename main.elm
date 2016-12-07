@@ -5,6 +5,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
 import Json.Decode as Decode
+import Regex
 
 
 main =
@@ -60,7 +61,11 @@ view model =
 
 isServerMatch : String -> String -> Bool
 isServerMatch search server =
-    String.contains search server
+    let
+        regex =
+            Regex.regex search
+    in
+        Regex.contains regex server
 
 
 viewServers : String -> ServerList -> Html Msg
