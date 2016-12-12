@@ -95,7 +95,7 @@ func deployHandler(ws *websocket.Conn, data Message) {
 					Status: "done"})
 				if err != nil {
 					log.Println("error encoding to websocket", err)
-					ws.Write([]byte(fmt.Sprintf(`{"server":"%s","error":"%s"}`, server, err)))
+					ws.Write([]byte(fmt.Sprintf(`{"server":"%s","status":"error", "output":"%s"}`, server, err)))
 				}
 			}(server)
 		}
@@ -107,7 +107,7 @@ func deployHandler(ws *websocket.Conn, data Message) {
 	}
 	wg.Wait()
 
-	ws.Write([]byte("done"))
+	ws.Write([]byte(`{"status":"done"}`))
 }
 
 // deploy runs sudo DEPLOY=1 chef-client on the server
@@ -234,7 +234,7 @@ func sendRequest(url string, body interface{}) {
 
 func main() {
 	var port = ":9090"
-	http.Handle("/deploy", websocket.Handler(cmdHandler))
+	http.Handle("/cmd", websocket.Handler(cmdHandler))
 	http.Handle("/", http.FileServer(http.Dir(".")))
 	log.Println("listening on", port)
 	err := http.ListenAndServe(port, nil)
