@@ -3,6 +3,8 @@ module Main exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Http
+import Json.Decode as Decode
 
 
 main =
@@ -22,14 +24,15 @@ type alias Model =
 
 type Msg
     = SearchForServer String
+    | Clients (Result Http.Error (List String))
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { servers = [ "apid1", "apid2", "apid3" ]
+    ( { servers = [ "loading..." ]
       , serverSearchBox = ""
       }
-    , Cmd.none
+    , getClients
     )
 
 
@@ -65,6 +68,26 @@ update msg model =
             case msg of
                 SearchForServer serverName ->
                     { model | serverSearchBox = serverName }
+
+                Clients (Err e) ->
+                    case e of
+                        Http.BadUrl e ->
+                            { model | servers = [ "bad url" ] }
+
+                        Http.Timeout ->
+                            { model | servers = [ "timeout" ] }
+
+                        Http.NetworkError ->
+                            { model | servers = [ "network error" ] }
+
+                        Http.BadStatus resp ->
+                            { model | servers = [ "bad status" ] }
+
+                        Http.BadPayload p resp ->
+                            { model | servers = [ "error getting clients" ] }
+
+                Clients (Ok clients) ->
+                    { model | servers = clients }
     in
         ( newModel, Cmd.none )
 
@@ -73,3 +96,37 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         []
+
+
+
+-- HTTP
+
+
+getClients : Cmd Msg
+getClients =
+    let
+        url =
+            "http://sensu-mdw1.sendgrid.net:4567/clients"
+
+        headers =
+            [ Http.header "Accept" "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+            ]
+
+        request =
+            Http.request
+                ({ method = "GET"
+                 , headers = headers
+                 , url = url
+                 , body = Http.emptyBody
+                 , expect = Http.expectJson decodeClients
+                 , timeout = Nothing
+                 , withCredentials = False
+                 }
+                )
+    in
+        Http.send Clients request
+
+
+decodeClients : Decode.Decoder (List String)
+decodeClients =
+    Decode.list (Decode.at [ "name" ] Decode.string)
