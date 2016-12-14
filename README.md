@@ -1,36 +1,29 @@
-## Interface
+## To Run
 
-*websocket endpoints*
-- `$HOST:$PORT/cmd`
-
-*Request*
 ```
-{ cmd: "deploy"
-, username: "trothaus"
-, servers: ["filter1190p1mdw1.sendgrid.net", "filter1193p1mdw1.sendgrid.net"]
-, silence: ["alert1", "alert2"]
-, concurrency: 40
-}
+elm-live main.elm --debug
 ```
 
-*Responses*
-- Individual server response
-```
-{ "server": "filter1190p1mdw1.sendgrid.net"
-, "status": "deploying"
-, "output": ""
-}
-```
+## Possible Plans
+Server Info:
+- Name
+- IP
+- If it is stashed
+  + Reason
+  + When was it stashed
+  + How much longer is it stashed for
+  + Who stashed it
+- Stashed alerts
+- Healthcheck
+- Version
+- Config
+- If it is in the lb
+- If it is different than the majority of servers (version/healthcheck/config)
+- Maybe link to grafana/splunk dashboards
 
-- Error server response
-```
-{ "server": "filter1190p1mdw1.sendgrid.net"
-, "status": "error"
-, "output": "error message"
-}
-```
+Actions
+- Remove from the lb
+- Stash all alerts
+- Stash specified alerts
+- Chef (Deploy=1)
 
-- Deploy Compplete
-```
-{ "status": "done" }
-```
